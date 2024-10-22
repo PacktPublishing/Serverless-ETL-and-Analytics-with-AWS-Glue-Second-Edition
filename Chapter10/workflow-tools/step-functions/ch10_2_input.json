@@ -5,6 +5,6 @@
         "--datalake_location": "s3://<your-bucket-and-path>",
         "--database": "<your-database>",
         "--table": "example_workflow_sfn_sales",
-        "--report_year": "2021"
+        "--report_year": "2024"
     }
 }  

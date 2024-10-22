@@ -1,10 +1,7 @@
-# ch10_1_example_workflow_2_gen_report
 import sys
 import boto3
-from pyspark.context import SparkContext
+from pyspark.sql import SparkSession
 from awsglue.utils import getResolvedOptions
-from awsglue.context import GlueContext
-from awsglue.dynamicframe import DynamicFrame
 
 
 def set_s3_path(bucket_and_path: str) -> str:
@@ -27,7 +24,12 @@ DATABASE = get_workflow_props(client=glue, prop_name="database", args=args)
 TABLE = get_workflow_props(client=glue, prop_name="table", args=args)
 REPORT_YEAR = get_workflow_props(client=glue, prop_name="report_year", args=args)
 GEN_REPORT_QUERY = f"""
-SELECT
+CREATE TABLE {DATABASE}.{TABLE}_report
+USING parquet
+LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue-second-ed/chapter10/example-workflow/report/'
+PARTITIONED BY (report_year)
+OPTIONS ('compression'='snappy')
+AS SELECT
     category,
     CAST(sum(price) as long) as total_sales,
     year(to_timestamp(datetime)) as report_year
@@ -39,20 +41,7 @@ ORDER BY category, report_year DESC
 
 
 if __name__ == '__main__':
-    glue_context = GlueContext(SparkContext())
-    spark = glue_context.spark_session
+    spark = SparkSession.builder.getOrCreate()
     
-    df = spark.sql(GEN_REPORT_QUERY)\
-                .repartition("report_year")
-    df.show(n=df.count(), truncate=False)  # show the report result in the output
-
-    # Create/update a report table
-    sink = glue_context.getSink(
-        connection_type="s3",
-        path=f"{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-workflow/report/",
-        enableUpdateCatalog=True,
-        updateBehavior="UPDATE_IN_DATABASE",
-        partitionKeys=["report_year"])
-    sink.setFormat("glueparquet")
-    sink.setCatalogInfo(catalogDatabase=DATABASE, catalogTableName=f"{TABLE}_report")
-    sink.writeFrame(DynamicFrame.fromDF(dataframe=df, glue_ctx=glue_context, name='dyf'))
+    spark.sql(GEN_REPORT_QUERY)
+    spark.sql(f"SELECT * FROM {DATABASE}.{TABLE}_report").show(truncate=False) # show the report result

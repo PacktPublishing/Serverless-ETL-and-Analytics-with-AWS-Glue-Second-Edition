@@ -15,31 +15,23 @@ DATABASE = args['database']
 TABLE = args['table']
 REPORT_YEAR = args['report_year']
 GEN_REPORT_QUERY = f"""
-    SELECT
-        category,
-        CAST(sum(price) as long) as total_sales,
-        year(to_timestamp(datetime)) as report_year
-    FROM {DATABASE}.{TABLE}
-    WHERE year(to_timestamp(datetime)) = {REPORT_YEAR}
-    GROUP BY category, report_year
-    ORDER BY category, report_year DESC
+CREATE TABLE {DATABASE}.{TABLE}_report
+USING parquet
+LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-workflow-mwaa/report/'
+PARTITIONED BY (report_year)
+OPTIONS ('compression'='snappy')
+AS SELECT
+    category,
+    CAST(sum(price) as long) as total_sales,
+    year(to_timestamp(datetime)) as report_year
+FROM {DATABASE}.{TABLE}
+WHERE year(to_timestamp(datetime)) = {REPORT_YEAR}
+GROUP BY category, report_year
+ORDER BY category, report_year DESC
 """
-CTAS_REPORT_QUERY = f"""
-    CREATE TABLE {DATABASE}.{TABLE}_report
-    USING parquet
-    PARTITIONED BY (report_year)
-    LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-workflow-mwaa/report/'
-    SELECT * FROM tmp
-"""
-
 
 if __name__ == '__main__':
     spark = SparkSession.builder.getOrCreate()
     
-    df = spark.sql(GEN_REPORT_QUERY)\
-                .repartition("report_year")\
-                .createOrReplaceTempView('tmp')
-    df.show(n=df.count(), truncate=False)  # show the report result in the output
-
-    # Create a report table
-    spark.sql(CTAS_REPORT_QUERY)
+    spark.sql(GEN_REPORT_QUERY)
+    spark.sql(f"SELECT * FROM {DATABASE}.{TABLE}_report").show(truncate=False) # show the report result
