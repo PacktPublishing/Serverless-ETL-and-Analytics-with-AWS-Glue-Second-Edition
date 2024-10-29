@@ -1,5 +1,5 @@
 {
-    "Comment": "A workflow to run Glue Crawler and ETL Job",
+    "Comment": "A workflow to run Glue Crawler and Job",
     "StartAt": "StartCrawler",
     "States": {
       "StartCrawler": {
