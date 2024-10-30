@@ -17,7 +17,7 @@ REPORT_YEAR = args['report_year']
 GEN_REPORT_QUERY = f"""
 CREATE TABLE {DATABASE}.{TABLE}_report
 USING parquet
-LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-workflow-sfn/report/'
+LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue-second-ed/chapter10/example-workflow-sfn/report/'
 PARTITIONED BY (report_year)
 OPTIONS ('compression'='snappy')
 AS SELECT

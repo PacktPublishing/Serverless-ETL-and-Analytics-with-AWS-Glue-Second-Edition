@@ -1,5 +1,5 @@
 Description: >
-  This template will deploy the Glue workflow which consists of Glue Crawler and two ETL Jobs.
+  This template will deploy the Glue workflow which consists of Glue Crawler and two Glue Jobs.
   The crawler populates a table based on sales-data.json.
   The first job extracts the sales data and writes the data to the DataLakeLocation with category and report_year partitioning.
   The other job generates a report based on the data that is processed by the first job.
@@ -14,7 +14,7 @@ Parameters:
   # Glue Job - Common configuration
   GlueJobRoleArn:
     Description: >
-      IAM Role ARN for the Glue ETL jobs.
+      IAM Role ARN for the Glue Jobs.
     Type: String
     Default: arn:aws:iam::<YOUR_ACCOUND_ID>:role/service-role/<ROLE_NAME>
 
@@ -59,7 +59,7 @@ Parameters:
     Description: >
       The year when you want to aggregate the dataset and generate a report.
     Type: Number
-    Default: 2021
+    Default: 2024
 
 Resources:
   # Glue Crawler

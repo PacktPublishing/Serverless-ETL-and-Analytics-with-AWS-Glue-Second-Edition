@@ -1,9 +1,7 @@
 import sys
 import boto3
-from pyspark.context import SparkContext
+from pyspark.sql import SparkSession
 from awsglue.utils import getResolvedOptions
-from awsglue.context import GlueContext
-from awsglue.dynamicframe import DynamicFrame
 
 
 def set_s3_path(bucket_and_path: str) -> str:
@@ -28,6 +26,9 @@ TABLE_ANALYSIS = TABLE + '_analysis'
 TABLE_REPORT = TABLE + '_report'
 REPORT_YEAR = get_workflow_props(client=glue, prop_name="report_year", args=args)
 GEN_REPORT_QUERY = f"""
+CREATE TABLE {DATABASE}.{TABLE_REPORT}
+USING parquet
+LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue-second-ed/chapter10/example-cf/report/'
 SELECT
     category,
     CAST(sum(price) as long) as total_sales,
@@ -40,19 +41,7 @@ ORDER BY category, report_year DESC
 
 
 if __name__ == '__main__':
-    glue_context = GlueContext(SparkContext())
-    spark = glue_context.spark_session
-    
-    df = spark.sql(GEN_REPORT_QUERY)
-    df.show(n=df.count(), truncate=False)  # show the report result in the output
+    spark = SparkSession.builder.getOrCreate()
 
-    # Create/update a report table
-    sink = glue_context.getSink(
-        connection_type="s3",
-        path=f"{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-cf/report/",
-        enableUpdateCatalog=True,
-        updateBehavior="UPDATE_IN_DATABASE",
-        partitionKeys=["report_year"])
-    sink.setFormat("glueparquet")
-    sink.setCatalogInfo(catalogDatabase=DATABASE, catalogTableName=TABLE_REPORT)
-    sink.writeFrame(DynamicFrame.fromDF(dataframe=df, glue_ctx=glue_context, name='dyf'))
+    spark.sql(GEN_REPORT_QUERY)
+    spark.sql(f"SELECT * FROM {DATABASE}.{TABLE_REPORT}").show(truncate=False)  # show the report result in the output

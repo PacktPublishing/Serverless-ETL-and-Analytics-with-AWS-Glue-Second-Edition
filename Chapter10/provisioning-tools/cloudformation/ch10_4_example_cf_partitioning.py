@@ -1,10 +1,7 @@
 import sys
 import boto3
-from pyspark.context import SparkContext
-from pyspark.sql.functions import to_timestamp, year
+from pyspark.sql import SparkSession
 from awsglue.utils import getResolvedOptions
-from awsglue.context import GlueContext
-from awsglue.dynamicframe import DynamicFrame
 
 
 def set_s3_path(bucket_and_path: str) -> str:
@@ -26,31 +23,26 @@ DATALAKE_LOCATION = set_s3_path(bucket_and_path=get_workflow_props(client=glue, 
 DATABASE = get_workflow_props(client=glue, prop_name="database", args=args)
 TABLE = get_workflow_props(client=glue, prop_name="table", args=args)
 TABLE_ANALYSIS = TABLE + '_analysis'
-'''
-NOTE: The following parameters are used in the next Glue job; ch10_4_example_cf_gen_report
-# TABLE_REPORT = TABLE + '_report'
-# REPORT_YEAR = get_workflow_props(client=glue, prop_name="report_year", args=args)
-'''
+CREATE_ANALYSIS_TABLE = f"""
+CREATE TABLE {DATABASE}.{TABLE_ANALYSIS}
+USING parquet
+LOCATION '{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue-second-ed/chapter10/example-cf/data/'
+PARTITONED BY (category, report_year)
+OPTIONS ('compression'='snappy')
+AS SELECT
+    product_name,
+    price,
+    customer_id,
+    order_id,
+    category,
+    to_timestamp(datetime) as datetime_ts,
+    year(to_timestamp(datetime)) as report_year
+FROM {DATABASE}.{TABLE}
+"""
 
 
 if __name__ == '__main__':
-    glue_context = GlueContext(SparkContext())
-    spark = glue_context.spark_session
-    
-    df = spark.read.table(f'{DATABASE}.{TABLE}')\
-                    .withColumn('datetime_ts', to_timestamp('datetime'))\
-                    .withColumn('report_year', year(to_timestamp('datetime')))\
-                    .drop('datetime')\
-                    .repartition('category', 'report_year')
-    df.show(n=df.count(), truncate=False)  # show the report result in the output
+    spark = SparkSession.builder.getOrCreate()
 
-    # Create/update a table for sales analysis that is partitioned by category and report year 
-    sink = glue_context.getSink(
-        connection_type="s3",
-        path=f"{DATALAKE_LOCATION}/serverless-etl-and-analysis-w-glue/chapter10/example-cf/data/",
-        enableUpdateCatalog=True,
-        updateBehavior="UPDATE_IN_DATABASE",
-        partitionKeys=["category", "report_year"])
-    sink.setFormat("glueparquet")
-    sink.setCatalogInfo(catalogDatabase=DATABASE, catalogTableName=TABLE_ANALYSIS)
-    sink.writeFrame(DynamicFrame.fromDF(dataframe=df, glue_ctx=glue_context, name='dyf'))
+    spark.sql(CREATE_ANALYSIS_TABLE)
+    spark.sql(f"SELECT * FROM {DATABASE}.{TABLE_ANALYSIS}").show(truncate=False) # show the table records
