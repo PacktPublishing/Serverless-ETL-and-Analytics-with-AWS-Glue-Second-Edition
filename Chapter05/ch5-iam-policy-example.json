@@ -1,0 +1,19 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "For Glue Jobs service role",
+            "Effect": "Allow",
+            "Action": [
+                "..."
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "For S3 bucket read and write",
+            "Effect": "Allow",
+            "Action": "...",
+            "Resource": "*"
+        }
+    ]
+}
